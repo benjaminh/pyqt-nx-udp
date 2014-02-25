@@ -22,7 +22,7 @@ import socket # For UDP protocol
 
 import networkx as nx # Module for drawing graphs
 
-#UDPReceiver working in background
+# UDPReceiver working in background
 class UdpReceiver(QObject):
 	def __init__(self, parent = None):
 		QObject.__init__(self,parent)
@@ -46,12 +46,12 @@ class UdpReceiver(QObject):
 		print "DESTRUCTOR"
 		self.s.close()
 
-#Node class herited from Qt QGraphicsItem class
+# Node class herited from Qt QGraphicsItem class
 class NodeItem(QGraphicsItem):
 	def __init__(self, node, pos, radius=15, **args):
 		QGraphicsItem.__init__(self, **args)
 		self.pos = pos # Networkx list of graph items positions
-		#Node creation
+		# Node creation
 		self.node = node
 		self.radius = radius
 		x, y = pos[node]
@@ -69,29 +69,33 @@ class NodeItem(QGraphicsItem):
 
 	def paint(self, painter, style, widget=None):
 		assert isinstance(painter, QPainter)
-
-		#Color
+		# Color
 		if self.isSelected():
 			brush = QBrush(Qt.yellow)
 		else:
 			brush = QBrush(Qt.white)
 
-		pen = QPen(Qt.black)
+		color = QColor(0,0,0,50)
+		pen = QPen(color)
 
 		circle_path = QPainterPath()
 		circle_path.addEllipse(self.boundingRect())
 		painter.fillPath(circle_path, brush)
 		painter.strokePath(circle_path, pen)
 
-		#Position for node text
+		# Position for node text
 		text_path = QPainterPath()
 		text_path.addText(0, 0, QFont(), str(self.node))
 		box = text_path.boundingRect()
 		text_path.translate(-box.center())
 
 		painter.fillPath(text_path, QBrush(Qt.black))
+	
+	def get_node_item(self,node_id):
+		if (self.node == node_id):
+			return self
 
-#Edge class herited from QGraphicsItem Qt4 class
+# Edge class herited from QGraphicsItem Qt4 class
 class EdgeItem(QGraphicsItem):
 	def __init__(self, source, target, pos, **args):
 		QGraphicsItem.__init__(self, **args)
@@ -108,40 +112,45 @@ class EdgeItem(QGraphicsItem):
 		assert(isinstance(painter, QPainter))
 		x0, y0 = self.pos[self.source]
 		x1, y1 = self.pos[self.target]
+		color = QColor(0,0,0,50)
+		pen = QPen(color)
+		painter.setPen(pen)
 		painter.drawLine(x0, y0, x1, y1)
 
 class MyWindow(QMainWindow):
 	def __init__(self,parent = None):
 		QMainWindow.__init__(self,parent)
-		self.setFixedSize(1600,900) # To fit screen size. Didn't manage to resize the window automatically
+		self.setFixedSize(1200,800) # To fit screen size. Didn't manage to resize the window automatically
 		self.view = QGraphicsView(self)
 		self.scene = QGraphicsScene()
 		view = QGraphicsView(self.scene)
-		self.view.setFixedSize(1600,900)
+		self.view.setFixedSize(1200,800)
 
 	def emitSignal(self):
 		self.emit(SIGNAL("aSignal()"))
 		self.show()
 
 	# Function called by the UDP working thread when datagram is received
-	def drawGraph(self,node):
+	def drawGraph(self,item):
 		self.scene.clear()
-		#Read Gexf graph file
-		mygraph = nx.read_gexf("test.gexf") # Reference graph file : to be done one time only ?
+		# Read Gexf graph file
+		mygraph = nx.read_gexf("saint-sim.gexf") # Reference graph file : to be done one time only ?
 		g = nx.Graph()
-
-		# Populate empty networkx graph with selected node and neighbors
-		liste = mygraph.neighbors(node)
-		#Add edges based on graph
-		for neighbor in liste:
-			g.add_edge(node,neighbor)
+		g.add_edges_from(mygraph.edges())
+		g.add_nodes_from(mygraph.nodes())
 		pos = nx.spring_layout(g,scale=1000)
-
-		#Add items in the scene based on graph selection
 		for edge in g.edges():
 			self.scene.addItem(EdgeItem(edge[0], edge[1], pos))
-		for node in g.nodes():
+		for node in mygraph.nodes():
 			self.scene.addItem(NodeItem(node,pos))
+		# Populate empty networkx graph with selected node and neighbors
+		liste = mygraph.neighbors(item)
+		#Add edges based on graph
+		for neighbor in liste:
+			x, y = pos[neighbor]
+			self.scene.itemAt(x,y).setSelected(True)
+		x0,y0 = pos[item]
+		self.scene.itemAt(x0,y0).setSelected(True)
 		self.view.setScene(self.scene)
 
 def main():
