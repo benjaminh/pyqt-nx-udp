@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gexf xmlns="http://www.gexf.net/1.2draft" version="1.2" xmlns:viz="http://www.gexf.net/1.2draft/viz" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.gexf.net/1.2draft http://www.gexf.net/1.2draft/gexf.xsd">
+  <meta lastmodifieddate="2014-02-21">
+    <creator>Gephi 0.8.1</creator>
+    <description></description>
+  </meta>
+  <graph defaultedgetype="undirected" mode="static">
+    <nodes>
+      <node id="1" label="1">
+        <attvalues></attvalues>
+        <viz:size value="10.0"></viz:size>
+        <viz:position x="185.04797" y="268.57147" z="0.0"></viz:position>
+        <viz:color r="153" g="153" b="153"></viz:color>
+      </node>
+      <node id="2" label="2">
+        <attvalues></attvalues>
+        <viz:size value="10.0"></viz:size>
+        <viz:position x="7.4573364" y="15.874756" z="0.0"></viz:position>
+        <viz:color r="153" g="153" b="153"></viz:color>
+      </node>
+      <node id="3" label="3">
+        <attvalues></attvalues>
+        <viz:size value="10.0"></viz:size>
+        <viz:position x="-297.42807" y="72.03357" z="0.0"></viz:position>
+        <viz:color r="153" g="153" b="153"></viz:color>
+      </node>
+      <node id="4" label="4">
+        <attvalues></attvalues>
+        <viz:size value="10.0"></viz:size>
+        <viz:position x="-392.42114" y="489.19788" z="0.0"></viz:position>
+        <viz:color r="153" g="153" b="153"></viz:color>
+      </node>
+      <node id="5" label="5">
+        <attvalues></attvalues>
+        <viz:size value="10.0"></viz:size>
+        <viz:position x="-102.148285" y="263.86194" z="0.0"></viz:position>
+        <viz:color r="153" g="153" b="153"></viz:color>
+      </node>
+      <node id="6" label="6">
+        <attvalues></attvalues>
+        <viz:size value="10.0"></viz:size>
+        <viz:position x="-236.91031" y="121.42291" z="0.0"></viz:position>
+        <viz:color r="153" g="153" b="153"></viz:color>
+      </node>
+      <node id="7" label="7">
+        <attvalues></attvalues>
+        <viz:size value="10.0"></viz:size>
+        <viz:position x="426.20374" y="-311.5346" z="0.0"></viz:position>
+        <viz:color r="153" g="153" b="153"></viz:color>
+      </node>
+      <node id="8" label="8">
+        <attvalues></attvalues>
+        <viz:size value="10.0"></viz:size>
+        <viz:position x="-330.4655" y="-324.7246" z="0.0"></viz:position>
+        <viz:color r="153" g="153" b="153"></viz:color>
+      </node>
+      <node id="9" label="9">
+        <attvalues></attvalues>
+        <viz:size value="10.0"></viz:size>
+        <viz:position x="342.8235" y="-102.56229" z="0.0"></viz:position>
+        <viz:color r="153" g="153" b="153"></viz:color>
+      </node>
+      <node id="10" label="10">
+        <attvalues></attvalues>
+        <viz:size value="10.0"></viz:size>
+        <viz:position x="245.89325" y="-133.15338" z="0.0"></viz:position>
+        <viz:color r="153" g="153" b="153"></viz:color>
+      </node>
+    </nodes>
+    <edges>
+      <edge source="1" target="2">
+        <attvalues></attvalues>
+      </edge>
+      <edge source="1" target="3">
+        <attvalues></attvalues>
+      </edge>
+      <edge source="1" target="4">
+        <attvalues></attvalues>
+      </edge>
+      <edge source="1" target="8">
+        <attvalues></attvalues>
+      </edge>
+      <edge source="2" target="5">
+        <attvalues></attvalues>
+      </edge>
+      <edge source="2" target="6">
+        <attvalues></attvalues>
+      </edge>
+      <edge source="2" target="7">
+        <attvalues></attvalues>
+      </edge>
+      <edge source="2" target="9">
+        <attvalues></attvalues>
+      </edge>
+      <edge source="3" target="9">
+        <attvalues></attvalues>
+      </edge>
+      <edge source="3" target="10">
+        <attvalues></attvalues>
+      </edge>
+    </edges>
+  </graph>
+</gexf>
