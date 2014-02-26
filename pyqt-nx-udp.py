@@ -33,6 +33,7 @@ class UdpReceiver(QObject):
 		self.s = QUdpSocket()
 		self.s.bind(QHostAddress('127.0.0.1'),self.port) # Set the IP address to listen : 127.0.0.1 for localhost
 		self.s.readyRead.connect(self.receive) # Connect the readyRead function to custom receive function
+		self.old_node = '0'
 
 	# Function receive waits for UDP datagrams and emits signal for main GUI thread
 	def receive(self):
@@ -40,7 +41,9 @@ class UdpReceiver(QObject):
 			datagram = QByteArray()
 			size = self.s.pendingDatagramSize()
 			data,addr,port = self.s.readDatagram(size)
-			self.emit(SIGNAL("draw(PyQt_PyObject)"),data.strip()) # Send received datagram as Qt signal parameter
+			oldnode = self.old_node
+			self.old_node = data.strip()
+			self.emit(SIGNAL("draw(PyQt_PyObject,PyQt_PyObject)"),data.strip(),oldnode) # Send received datagram as Qt signal parameter
 
 	def __del__(self):
 		print "DESTRUCTOR"
@@ -69,7 +72,8 @@ class NodeItem(QGraphicsItem):
 
 	def paint(self, painter, style, widget=None):
 		assert isinstance(painter, QPainter)
-		# Color
+
+		# Node's color when selected
 		if self.isSelected():
 			brush = QBrush(Qt.yellow)
 		else:
@@ -118,54 +122,71 @@ class EdgeItem(QGraphicsItem):
 		painter.drawLine(x0, y0, x1, y1)
 
 class MyWindow(QMainWindow):
-	def __init__(self,parent = None):
+	def __init__(self,graph,position,parent = None):
 		QMainWindow.__init__(self,parent)
+
 		self.setFixedSize(1200,800) # To fit screen size. Didn't manage to resize the window automatically
 		self.view = QGraphicsView(self)
 		self.scene = QGraphicsScene()
 		view = QGraphicsView(self.scene)
 		self.view.setFixedSize(1200,800)
 
+		self.pos = position
+		self.g = graph
+
+		# Populate empty networkx graph with selected node and neighbors
+		for edge in self.g.edges():
+			self.scene.addItem(EdgeItem(edge[0], edge[1], self.pos))
+		for node in self.g.nodes():
+			self.scene.addItem(NodeItem(node,self.pos))
+
 	def emitSignal(self):
-		self.emit(SIGNAL("aSignal()"))
+		self.emit(SIGNAL("start_listening()"))
 		self.show()
 
 	# Function called by the UDP working thread when datagram is received
-	def drawGraph(self,item):
-		self.scene.clear()
-		# Read Gexf graph file
-		mygraph = nx.read_gexf("saint-sim.gexf") # Reference graph file : to be done one time only ?
-		g = nx.Graph()
-		g.add_edges_from(mygraph.edges())
-		g.add_nodes_from(mygraph.nodes())
-		pos = nx.spring_layout(g,scale=1000)
-		for edge in g.edges():
-			self.scene.addItem(EdgeItem(edge[0], edge[1], pos))
-		for node in mygraph.nodes():
-			self.scene.addItem(NodeItem(node,pos))
-		# Populate empty networkx graph with selected node and neighbors
-		liste = mygraph.neighbors(item)
-		#Add edges based on graph
+	def drawGraph(self,item,oldnode):
+		if (oldnode != '0'):
+			# Unselect old node and neighbors
+			for oldneighbor in self.g.neighbors(oldnode):
+				x, y = self.pos[oldneighbor]
+				self.scene.itemAt(x,y).setSelected(False)
+			xold,yold = self.pos[oldnode]
+			self.scene.itemAt(xold,yold).setSelected(False)
+
+		# Retrieve list of selected node's neighbors
+		liste = self.g.neighbors(item)
+
+		# SetSelected each of the neighbor in Qt Window
 		for neighbor in liste:
-			x, y = pos[neighbor]
+			x, y = self.pos[neighbor]
 			self.scene.itemAt(x,y).setSelected(True)
-		x0,y0 = pos[item]
+		x0,y0 = self.pos[item]
 		self.scene.itemAt(x0,y0).setSelected(True)
 		self.view.setScene(self.scene)
 
 def main():
 	qApp = QApplication(sys.argv)
 
-	net = UdpReceiver()
-	win = MyWindow()
+	# Read Gexf input graph file
+	mygraph = nx.read_gexf("saint-sim.gexf")
+	g = nx.Graph()
+	g.add_edges_from(mygraph.edges())
+	g.add_nodes_from(mygraph.nodes())
+	pos = nx.spring_layout(g,scale=1000)
 
+	# Initialize UDP receiver and Qt window
+	net = UdpReceiver()
+	win = MyWindow(g,pos)
+
+	# Use signal/slots to communicate between qthreads
 	t = QThread()
 	net.moveToThread(t)
-	QObject.connect(win,SIGNAL("aSignal()"),net.receive)
-	QObject.connect(net,SIGNAL("draw(PyQt_PyObject)"),win.drawGraph)
+	QObject.connect(win,SIGNAL("start_listening()"),net.receive)
+	QObject.connect(net,SIGNAL("draw(PyQt_PyObject,PyQt_PyObject)"),win.drawGraph)
 
 	t.start()
-	win.emitSignal()
+	win.emitSignal() # Ready to listen UDP port
 	
 	sys.exit(qApp.exec_())
 
