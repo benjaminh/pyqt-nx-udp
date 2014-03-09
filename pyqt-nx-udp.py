@@ -111,9 +111,15 @@ class EdgeItem(QGraphicsItem):
 		self.target = target
 		self.pos = pos
 
+		self.setFlag(QGraphicsItem.ItemIsSelectable)
+
 	def boundingRect(self):
 		x0, y0 = self.pos[self.source]
 		x1, y1 = self.pos[self.target]
+		self.x0 = min(x0, x1)
+		self.y0 = min(y0, y1)
+		self.x1 = min(x0, x1) + abs(x1-x0)
+		self.y1 = min(y0, y1) + abs(y1-y0)
 		return QRectF(min(x0, x1), min(y0, y1), abs(x1-x0), abs(y1-y0))
 
 	def paint(self, painter, style, widget=None):
@@ -122,6 +128,9 @@ class EdgeItem(QGraphicsItem):
 		x1, y1 = self.pos[self.target]
 		color = QColor(0,0,0,50)
 		pen = QPen(color)
+		# Increase edge width if selected
+		if self.isSelected():
+			pen.setWidth(10)
 		painter.setPen(pen)
 		painter.drawLine(x0, y0, x1, y1)
 
@@ -138,10 +147,14 @@ class MyWindow(QMainWindow):
 		self.pos = position
 		self.g = graph
 		graphic = self.g
+	
+		self.edges = {}
 
 		# Populate empty networkx graph with selected node and neighbors
 		for edge in self.g.edges():
-			self.scene.addItem(EdgeItem(edge[0], edge[1], self.pos))
+			edgeItem = EdgeItem(edge[0], edge[1], self.pos)
+			self.scene.addItem(edgeItem)
+			self.edges[edge[0]] = [(edge[1],edgeItem)]
 		for node in self.g.nodes():
 			self.scene.addItem(NodeItem(node,self.g.node[node]['label'],self.pos))
 
@@ -162,12 +175,18 @@ class MyWindow(QMainWindow):
 		# Retrieve list of selected node's neighbors
 		liste = self.g.neighbors(item)
 
+		x0,y0 = self.pos[item]
+		self.scene.itemAt(x0,y0).setSelected(True)
 		# SetSelected each of the neighbor in Qt Window
 		for neighbor in liste:
 			x, y = self.pos[neighbor]
 			self.scene.itemAt(x,y).setSelected(True)
-		x0,y0 = self.pos[item]
-		self.scene.itemAt(x0,y0).setSelected(True)
+			#SetSelected each of connecting edges
+			items = self.scene.items(QRectF(min(x0, x), min(y0, y), abs(x-x0), abs(y-y0)))
+			for element in items:
+				if type(element) == EdgeItem and element.x0 == min(x0, x) and element.y0 == min(y0, y) and element.x1 == min(x0, x) + abs(x-x0) and element.y1 == min(y0, y) + abs(y-y0):
+					element.setSelected(True)
+		
 		self.view.setScene(self.scene)
 
 ## Utility function
