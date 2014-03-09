@@ -176,10 +176,12 @@ class MyWindow(QMainWindow):
 		liste = self.g.neighbors(item)
 
 		x0,y0 = self.pos[item]
+		self.scene.itemAt(x0,y0).setZValue(10)
 		self.scene.itemAt(x0,y0).setSelected(True)
 		# SetSelected each of the neighbor in Qt Window
 		for neighbor in liste:
 			x, y = self.pos[neighbor]
+			self.scene.itemAt(x0,y0).setZValue(10)
 			self.scene.itemAt(x,y).setSelected(True)
 			#SetSelected each of connecting edges
 			items = self.scene.items(QRectF(min(x0, x), min(y0, y), abs(x-x0), abs(y-y0)))
