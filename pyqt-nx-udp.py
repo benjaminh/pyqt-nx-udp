@@ -21,6 +21,7 @@ import os,sys, time
 import socket # For UDP protocol
 
 import networkx as nx # Module for drawing graphs
+import numpy as np
 
 # UDPReceiver working in background
 class UdpReceiver(QObject):
@@ -51,7 +52,7 @@ class UdpReceiver(QObject):
 
 # Node class herited from Qt QGraphicsItem class
 class NodeItem(QGraphicsItem):
-	def __init__(self, node, pos, radius=15, **args):
+	def __init__(self, node, nodelabel, pos, radius=15, **args):
 		QGraphicsItem.__init__(self, **args)
 		self.pos = pos # Networkx list of graph items positions
 		# Node creation
@@ -59,6 +60,7 @@ class NodeItem(QGraphicsItem):
 		self.radius = radius
 		x, y = pos[node]
 		self.setPos(QPointF(x, y))
+		self.nodelabel = nodelabel
 
 		self.setFlag(QGraphicsItem.ItemIsMovable)
 		self.setFlag(QGraphicsItem.ItemIsSelectable)
@@ -68,16 +70,22 @@ class NodeItem(QGraphicsItem):
 		self.setPos(*pos[self.node])
 
 	def boundingRect(self):
-		return QRectF(-self.radius, -self.radius, 2*self.radius, 2*self.radius)
+		if self.isSelected():
+			return QRectF(-2*self.radius, -2*self.radius, 4*self.radius, 4*self.radius)
+		else:
+			return QRectF(-self.radius, -self.radius, 2*self.radius, 2*self.radius)
 
 	def paint(self, painter, style, widget=None):
 		assert isinstance(painter, QPainter)
 
+		qfont = QFont()
 		# Node's color when selected
 		if self.isSelected():
 			brush = QBrush(Qt.yellow)
+			qfont.setPointSize(16)
 		else:
 			brush = QBrush(Qt.white)
+			qfont.setPointSize(6)
 
 		color = QColor(0,0,0,50)
 		pen = QPen(color)
@@ -89,15 +97,11 @@ class NodeItem(QGraphicsItem):
 
 		# Position for node text
 		text_path = QPainterPath()
-		text_path.addText(0, 0, QFont(), str(self.node))
+		text_path.addText(0, 0, qfont, self.nodelabel)
 		box = text_path.boundingRect()
 		text_path.translate(-box.center())
 
 		painter.fillPath(text_path, QBrush(Qt.black))
-	
-	def get_node_item(self,node_id):
-		if (self.node == node_id):
-			return self
 
 # Edge class herited from QGraphicsItem Qt4 class
 class EdgeItem(QGraphicsItem):
@@ -133,12 +137,13 @@ class MyWindow(QMainWindow):
 
 		self.pos = position
 		self.g = graph
+		graphic = self.g
 
 		# Populate empty networkx graph with selected node and neighbors
 		for edge in self.g.edges():
 			self.scene.addItem(EdgeItem(edge[0], edge[1], self.pos))
 		for node in self.g.nodes():
-			self.scene.addItem(NodeItem(node,self.pos))
+			self.scene.addItem(NodeItem(node,self.g.node[node]['label'],self.pos))
 
 	def emitSignal(self):
 		self.emit(SIGNAL("start_listening()"))
@@ -165,19 +170,108 @@ class MyWindow(QMainWindow):
 		self.scene.itemAt(x0,y0).setSelected(True)
 		self.view.setScene(self.scene)
 
+## Utility function
+def eucl_dist(a,b):
+    """
+Euclidean distance
+"""
+    Di = [(a[i]-b[i])**2 for i in xrange(len(a))]
+    return np.sqrt(np.sum(Di))
+
+## Now the layout function
+## https://github.com/tpoisot/nxfa2 with scale parameter added
+def forceatlas2_layout(G, scale=1.0, iterations = 10, linlog = False, pos = None, nohubs = False, kr = 0.001, k = None, dim = 2):
+    """
+Options values are
+
+g The graph to layout
+iterations Number of iterations to do
+linlog Whether to use linear or log repulsion
+random_init Start with a random position
+If false, start with FR
+avoidoverlap Whether to avoid overlap of points
+degreebased Degree based repulsion
+"""
+    # We add attributes to store the current and previous convergence speed
+    for n in G:
+        G.node[n]['prevcs'] = 0
+        G.node[n]['currcs'] = 0
+    # To numpy matrix
+    # This comes from the spares FR layout in nx
+    A=nx.to_scipy_sparse_matrix(G,dtype='f')
+    nnodes,_=A.shape
+    from scipy.sparse import spdiags,coo_matrix
+    try:
+        A=A.tolil()
+    except:
+        A=(coo_matrix(A)).tolil()
+    if pos==None:
+        pos=np.asarray(np.random.random((nnodes,dim)),dtype=A.dtype)
+    else:
+        pos=pos.astype(A.dtype)
+    if k is None:
+        k=np.sqrt(1.0/nnodes)
+    # Iterations
+    # the initial "temperature" is about .1 of domain area (=1x1)
+    # this is the largest step allowed in the dynamics.
+    t=0.1
+    # simple cooling scheme.
+    # linearly step down by dt on each iteration so last iteration is size dt.
+    dt=t/float(iterations+1)
+    displacement=np.zeros((dim,nnodes))
+    for iteration in range(iterations):
+        displacement*=0
+        # loop over rows
+        for i in range(A.shape[0]):
+            # difference between this row's node position and all others
+            delta=(pos[i]-pos).T
+            # distance between points
+            distance=np.sqrt((delta**2).sum(axis=0))
+            # enforce minimum distance of 0.01
+            distance=np.where(distance<0.01,0.01,distance)
+            # the adjacency matrix row
+            Ai=np.asarray(A.getrowview(i).toarray())
+            # displacement "force"
+            Dist = k*k/distance**2
+            if nohubs:
+                Dist = Dist/float(Ai.sum(axis=1)+1)
+            if linlog:
+                Dist = np.log(Dist+1)
+            displacement[:,i]+=\
+                (delta*(Dist-Ai*distance/k)).sum(axis=1)
+        # update positions
+        length=np.sqrt((displacement**2).sum(axis=0))
+        length=np.where(length<0.01,0.1,length)
+        pos+=(displacement*t/length).T
+        # cool temperature
+        t-=dt
+    # Return the layout
+    pos = _rescale_layout(pos,scale)
+    return dict(zip(G,pos))
+
+def _rescale_layout(pos,scale=1):
+    # rescale to (0,pscale) in all axes
+
+    # shift origin to (0,0)
+    lim=0 # max coordinate for all axes
+    for i in range(pos.shape[1]):
+        pos[:,i]-=pos[:,i].min()
+        lim=max(pos[:,i].max(),lim)
+    # rescale to (0,scale) in all directions, preserves aspect
+    for i in range(pos.shape[1]):
+        pos[:,i]*=scale/lim
+    return pos
+
 def main():
 	qApp = QApplication(sys.argv)
 
 	# Read Gexf input graph file
 	mygraph = nx.read_gexf("saint-sim.gexf")
-	g = nx.Graph()
-	g.add_edges_from(mygraph.edges())
-	g.add_nodes_from(mygraph.nodes())
-	pos = nx.spring_layout(g,scale=1000)
+	pos = forceatlas2_layout(mygraph,scale=1000)
 
 	# Initialize UDP receiver and Qt window
 	net = UdpReceiver()
-	win = MyWindow(g,pos)
+	win = MyWindow(mygraph,pos)
 
 	# Use signal/slots to communicate between qthreads
 	t = QThread()
